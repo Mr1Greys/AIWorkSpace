@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { useProjectStore } from '@/store/projectStore';
 import { formatCurrency, formatRelativeTime } from '@/utils/format';
+import { useRole } from '@/contexts/RoleContext';
 import { DollarSign, Clock, Star, MessageSquare, ArrowLeft } from 'lucide-react';
 
 const statusConfig: Record<
@@ -15,12 +16,18 @@ const statusConfig: Record<
 > = {
   active: { label: 'В работе', badgeClass: 'bg-green-100 text-green-700' },
   pending: { label: 'На рассмотрении', badgeClass: 'bg-yellow-100 text-yellow-700' },
+  in_review: { label: 'На модерации', badgeClass: 'bg-yellow-100 text-yellow-700' },
   completed: { label: 'Завершён', badgeClass: 'bg-blue-100 text-blue-700' },
   cancelled: { label: 'Отменён', badgeClass: 'bg-gray-100 text-gray-700' },
+  draft: { label: 'Черновик', badgeClass: 'bg-gray-100 text-gray-700' },
+  disputed: { label: 'Спор', badgeClass: 'bg-rose-100 text-rose-700' },
 };
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const { currentRole, isReady } = useRole();
+
   const projectId = useMemo(() => {
     const value = params?.id;
     if (!value) return '';
@@ -31,6 +38,32 @@ export default function ProjectDetailPage() {
     state.projects.find((p) => p.id === projectId)
   );
   const hydrated = useProjectStore((state) => state.hydrated);
+  const applyToProject = useProjectStore((state) => state.applyToProject);
+
+  const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [proposalText, setProposalText] = useState('');
+  const [bidAmount, setBidAmount] = useState('');
+  const [timelineDays, setTimelineDays] = useState('');
+  const [hasApplied, setHasApplied] = useState(false);
+
+  const [isContactOpen, setIsContactOpen] = useState(false);
+  const [contactMessage, setContactMessage] = useState('');
+
+  useEffect(() => {
+    if (isReady && currentRole === 'client') {
+      router.replace('/freelancers');
+    }
+  }, [currentRole, isReady, router]);
+
+  useEffect(() => {
+    setHasApplied(false);
+    setIsApplyOpen(false);
+    setIsContactOpen(false);
+    setProposalText('');
+    setBidAmount(project ? String(project.budgetMin) : '');
+    setTimelineDays('');
+    setContactMessage('');
+  }, [projectId, project]);
 
   if (!hydrated) {
     return (
@@ -80,6 +113,32 @@ export default function ProjectDetailPage() {
         .toUpperCase()
         .slice(0, 2)
     : 'CL';
+
+  const handleApply = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!proposalText.trim()) {
+      alert('Опишите ваше предложение, чтобы заказчик понял вашу экспертизу.');
+      return;
+    }
+    applyToProject(project.id);
+    setHasApplied(true);
+    setIsApplyOpen(false);
+    setProposalText('');
+    setBidAmount('');
+    setTimelineDays('');
+    alert('Отклик отправлен. Заказчик получит уведомление и свяжется с вами.');
+  };
+
+  const handleContact = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!contactMessage.trim()) {
+      alert('Введите сообщение для заказчика.');
+      return;
+    }
+    setIsContactOpen(false);
+    setContactMessage('');
+    alert('Сообщение отправлено заказчику.');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -170,14 +229,88 @@ export default function ProjectDetailPage() {
                   </div>
                 </div>
               </div>
-              <div className="mt-6 space-y-2">
-                <button className="w-full rounded-[10px] bg-gradient-to-r from-[#3B82F6] to-[#6366F1] px-6 py-3 text-sm font-medium text-white transition-all duration-200 hover:shadow-lg">
-                  Откликнуться
+              <div className="mt-6 space-y-3">
+                <button
+                  className="w-full rounded-[10px] bg-gradient-to-r from-[#3B82F6] to-[#6366F1] px-6 py-3 text-sm font-medium text-white transition-all duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+                  onClick={() => {
+                    if (hasApplied) return;
+                    setIsApplyOpen((prev) => !prev);
+                    setIsContactOpen(false);
+                  }}
+                  disabled={hasApplied}
+                >
+                  {hasApplied ? 'Вы уже откликнулись' : isApplyOpen ? 'Свернуть форму' : 'Откликнуться'}
                 </button>
                 <button className="w-full rounded-[10px] border border-[#E5E7EB] bg-white px-6 py-3 text-sm font-medium text-[#374151] transition-all duration-200 hover:bg-[#F3F4F6]">
                   Сохранить проект
                 </button>
               </div>
+
+              {isApplyOpen && !hasApplied && (
+                <form onSubmit={handleApply} className="mt-6 space-y-4 rounded-xl border border-dashed border-primary-200 bg-primary-50/40 p-4">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase text-primary-600">
+                      Сообщение заказчику
+                    </label>
+                    <textarea
+                      value={proposalText}
+                      onChange={(e) => setProposalText(e.target.value)}
+                      rows={4}
+                      placeholder="Расскажите о релевантном опыте, предложите подход и сроки..."
+                      className="w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase text-gray-500">
+                        Предлагаемый бюджет
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={bidAmount}
+                        onChange={(e) => setBidAmount(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                        placeholder="Например 1200"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase text-gray-500">
+                        Срок (дней)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={timelineDays}
+                        onChange={(e) => setTimelineDays(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                        placeholder="Например 10"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="flex-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-primary-700"
+                    >
+                      Отправить отклик
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsApplyOpen(false);
+                        setProposalText('');
+                        setBidAmount('');
+                        setTimelineDays('');
+                      }}
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-all hover:bg-gray-100"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -206,10 +339,50 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
 
-              <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-[10px] border border-[#E5E7EB] bg-white px-4 py-2 text-sm font-medium text-[#374151] transition-all duration-200 hover:bg-[#F3F4F6]">
+              <button
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-[10px] border border-[#E5E7EB] bg-white px-4 py-2 text-sm font-medium text-[#374151] transition-all duration-200 hover:bg-[#F3F4F6]"
+                onClick={() => {
+                  setIsContactOpen((prev) => !prev);
+                  setIsApplyOpen(false);
+                }}
+              >
                 <MessageSquare className="h-4 w-4" />
-                Написать заказчику
+                {isContactOpen ? 'Свернуть' : 'Написать заказчику'}
               </button>
+
+              {isContactOpen && (
+                <form onSubmit={handleContact} className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <label className="block text-xs font-semibold uppercase text-gray-500">
+                    Сообщение
+                  </label>
+                  <textarea
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value)}
+                    rows={3}
+                    placeholder="Здравствуйте! Уточните, пожалуйста..."
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                    required
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="flex-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-primary-700"
+                    >
+                      Отправить
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsContactOpen(false);
+                        setContactMessage('');
+                      }}
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-all hover:bg-gray-100"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>

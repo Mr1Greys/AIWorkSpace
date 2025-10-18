@@ -33,13 +33,20 @@ export default function ProjectsPage() {
   const statusConfig = {
     active: { label: 'В работе', color: 'bg-blue-100 text-blue-700' },
     pending: { label: 'На рассмотрении', color: 'bg-yellow-100 text-yellow-700' },
+    in_review: { label: 'На модерации', color: 'bg-yellow-100 text-yellow-700' },
     completed: { label: 'Завершённые', color: 'bg-green-100 text-green-700' },
     cancelled: { label: 'Отменённые', color: 'bg-gray-100 text-gray-700' },
-  };
+    draft: { label: 'Черновик', color: 'bg-gray-100 text-gray-700' },
+    disputed: { label: 'Спор', color: 'bg-rose-100 text-rose-700' },
+  } as const;
 
-  const filteredProjects = filter === 'all' 
-    ? clientProjects 
-    : clientProjects.filter(p => p.status === filter);
+  const filteredProjects = filter === 'all'
+    ? clientProjects
+    : clientProjects.filter((p) =>
+        filter === 'pending'
+          ? p.status === 'pending' || p.status === 'in_review'
+          : p.status === filter
+      );
 
   return (
     <div className="space-y-6">

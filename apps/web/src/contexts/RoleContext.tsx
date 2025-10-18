@@ -7,6 +7,7 @@ export type UserRole = 'freelancer' | 'client';
 interface RoleContextType {
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
+  isReady: boolean;
 }
 
 export const RoleContext = createContext<RoleContextType | undefined>(undefined);
@@ -35,7 +36,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }, [currentRole, isReady]);
 
   return (
-    <RoleContext.Provider value={{ currentRole, setCurrentRole }}>
+    <RoleContext.Provider value={{ currentRole, setCurrentRole, isReady }}>
       {children}
     </RoleContext.Provider>
   );

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { mockProjects } from '@/mocks/projects';
 import { Project, ProjectStatus } from '@/types/project';
+import { useAdminModerationStore } from './adminModerationStore';
 
 interface ProjectStore {
   projects: Project[];
@@ -10,6 +11,7 @@ interface ProjectStore {
   updateProject: (id: string, updates: Partial<Project>) => void;
   deleteProject: (id: string) => void;
   getProjectsByClient: (clientId: string) => Project[];
+  applyToProject: (id: string) => void;
   setHydrated: () => void;
 }
 
@@ -22,13 +24,20 @@ export const useProjectStore = create<ProjectStore>()(
         const newProject: Project = {
           ...projectData,
           id: Date.now().toString(),
-          status: 'pending',
+          status: 'in_review' as ProjectStatus,
           applicants: 0,
           createdAt: new Date().toISOString(),
         };
         set((state) => ({
           projects: [newProject, ...state.projects],
         }));
+        // Добавляем проект в очередь модерации администратора
+        if (typeof window !== 'undefined') {
+          // избегаем обращения к store на сервере
+          useAdminModerationStore
+            .getState()
+            .addPendingProject(newProject, { clientEmail: `${projectData.clientId || 'client'}@example.com` });
+        }
       },
       updateProject: (id, updates) => {
         set((state) => ({
@@ -40,6 +49,18 @@ export const useProjectStore = create<ProjectStore>()(
       deleteProject: (id) => {
         set((state) => ({
           projects: state.projects.filter((p) => p.id !== id),
+        }));
+      },
+      applyToProject: (id) => {
+        set((state) => ({
+          projects: state.projects.map((project) =>
+            project.id === id
+              ? {
+                  ...project,
+                  applicants: project.applicants + 1,
+                }
+              : project
+          ),
         }));
       },
       getProjectsByClient: (clientId) => {

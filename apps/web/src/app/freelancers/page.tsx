@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { Search, Filter, X, Wrench, Bot, Globe, Smartphone, Palette, BarChart3 } from 'lucide-react';
+import { Search, X, Wrench, Bot, Globe, Smartphone, Palette, BarChart3 } from 'lucide-react';
+import { freelancerDirectory, FreelancerProfile } from '@/data/freelancers';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Направления (пресеты)
 const categories = [
@@ -14,111 +17,6 @@ const categories = [
   { id: 'telegram', label: 'Telegram-боты', icon: Smartphone, tags: ['Python', 'aiogram', 'Telegram Bot API', 'Node.js'] },
   { id: 'design', label: 'Дизайн', icon: Palette, tags: ['Figma', 'UI/UX', 'Prototyping', 'Design Systems'] },
   { id: 'data', label: 'Data/Аналитика', icon: BarChart3, tags: ['Python', 'Pandas', 'SQL', 'Jupyter', 'Visualization'] },
-];
-
-const freelancers = [
-  {
-    id: 1,
-    name: 'Алекс Джонсон',
-    avatar: '👨‍💻',
-    headline: 'Full-Stack разработчик и AI-инженер',
-    rating: 4.9,
-    reviewsCount: 47,
-    experience: 5,
-    location: 'Москва',
-    timezone: 'UTC+3',
-    skills: ['NextJS', 'AI', 'NodeJS', 'React', 'Python', 'LangChain'],
-    availability: 'available',
-    verified: true,
-    online: true,
-    portfolioCount: 8,
-    profileType: 'freelancer',
-  },
-  {
-    id: 2,
-    name: 'Сара Чен',
-    avatar: '👩‍💼',
-    headline: 'Senior Backend Engineer',
-    rating: 4.8,
-    reviewsCount: 32,
-    experience: 4,
-    location: 'Санкт-Петербург',
-    timezone: 'UTC+3',
-    skills: ['Node.js', 'PostgreSQL', 'Redis', 'Docker', 'TypeScript'],
-    availability: 'available',
-    verified: true,
-    online: false,
-    portfolioCount: 5,
-    profileType: 'freelancer',
-  },
-  {
-    id: 3,
-    name: 'Майк Родригес',
-    avatar: '👨‍🔧',
-    headline: 'Blockchain Developer',
-    rating: 5.0,
-    reviewsCount: 28,
-    experience: 6,
-    location: 'Казань',
-    timezone: 'UTC+3',
-    skills: ['Solidity', 'Web3', 'Ethers.js', 'Hardhat', 'React'],
-    availability: 'busy',
-    verified: false,
-    online: false,
-    portfolioCount: 12,
-    profileType: 'freelancer',
-  },
-  {
-    id: 4,
-    name: 'Анна Петрова',
-    avatar: '👩‍💻',
-    headline: 'Frontend разработчик',
-    rating: 4.9,
-    reviewsCount: 41,
-    experience: 3,
-    location: 'Новосибирск',
-    timezone: 'UTC+7',
-    skills: ['React', 'TypeScript', 'TailwindCSS', 'Figma', 'NextJS'],
-    availability: 'available',
-    verified: true,
-    online: true,
-    portfolioCount: 6,
-    profileType: 'freelancer',
-  },
-  {
-    id: 5,
-    name: 'Дмитрий Соколов',
-    avatar: '👨‍🎨',
-    headline: 'UI/UX дизайнер и фронтенд',
-    rating: 4.7,
-    reviewsCount: 35,
-    experience: 4,
-    location: 'Екатеринбург',
-    timezone: 'UTC+5',
-    skills: ['Figma', 'React', 'Animation', 'Design', 'Prototyping'],
-    availability: 'available',
-    verified: false,
-    online: false,
-    portfolioCount: 9,
-    profileType: 'freelancer',
-  },
-  {
-    id: 6,
-    name: 'Елена Волкова',
-    avatar: '👩‍🔬',
-    headline: 'Data Scientist & ML Engineer',
-    rating: 4.9,
-    reviewsCount: 52,
-    experience: 7,
-    location: 'Москва',
-    timezone: 'UTC+3',
-    skills: ['Python', 'TensorFlow', 'PyTorch', 'AI', 'Pandas', 'Jupyter'],
-    availability: 'team',
-    verified: true,
-    online: true,
-    portfolioCount: 15,
-    profileType: 'team',
-  },
 ];
 
 const allSkills = [
@@ -136,6 +34,8 @@ const cities = [
 ];
 
 export default function FreelancersPage() {
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -190,7 +90,9 @@ export default function FreelancersPage() {
     hasPortfolio ||
     minRating > 0;
 
-  const filteredFreelancers = freelancers.filter(f => {
+  const filteredFreelancers = useMemo(
+    () =>
+      freelancerDirectory.filter((f) => {
     // Поиск
     const matchesSearch = searchQuery === '' || 
       f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -225,10 +127,24 @@ export default function FreelancersPage() {
 
     return matchesSearch && matchesSkills && matchesStatus && matchesProfileType && 
            matchesCity && matchesVerified && matchesPortfolio && matchesRating;
-  });
+      }),
+    [
+      searchQuery,
+      selectedCategory,
+      selectedSkills,
+      statusFilter,
+      profileTypeFilter,
+      cityFilter,
+      verifiedOnly,
+      hasPortfolio,
+      minRating,
+    ]
+  );
 
   // Сортировка
-  const sortedFreelancers = [...filteredFreelancers].sort((a, b) => {
+  const sortedFreelancers = useMemo(() => {
+    const result = [...filteredFreelancers];
+    result.sort((a, b) => {
     if (sortBy === 'rating') {
       return b.rating - a.rating;
     } else if (sortBy === 'activity') {
@@ -238,7 +154,27 @@ export default function FreelancersPage() {
     }
     // relevance - пока просто по рейтингу, в будущем AI
     return b.rating - a.rating;
-  });
+    });
+    return result;
+  }, [filteredFreelancers, sortBy]);
+
+  const handleProfileOpen = (freelancerId: string) => {
+    if (!isAuthenticated) {
+      setAuthAction('profile');
+      setShowAuthModal(true);
+      return;
+    }
+    router.push(`/freelancers/${freelancerId}`);
+  };
+
+  const handleMessageOpen = (freelancerId: string) => {
+    if (!isAuthenticated) {
+      setAuthAction('message');
+      setShowAuthModal(true);
+      return;
+    }
+    router.push(`/chat/${freelancerId}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -553,17 +489,11 @@ export default function FreelancersPage() {
             {/* Freelancers Grid */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {sortedFreelancers.map((freelancer) => (
-                <FreelancerCard 
-                  key={freelancer.id} 
+                <FreelancerCard
+                  key={freelancer.id}
                   freelancer={freelancer}
-                  onMessageClick={() => {
-                    setAuthAction('message');
-                    setShowAuthModal(true);
-                  }}
-                  onProfileClick={() => {
-                    setAuthAction('profile');
-                    setShowAuthModal(true);
-                  }}
+                  onMessageClick={() => handleMessageOpen(freelancer.id)}
+                  onProfileClick={() => handleProfileOpen(freelancer.id)}
                 />
               ))}
             </div>
@@ -599,12 +529,12 @@ export default function FreelancersPage() {
   );
 }
 
-function FreelancerCard({ 
-  freelancer, 
+function FreelancerCard({
+  freelancer,
   onMessageClick,
-  onProfileClick 
-}: { 
-  freelancer: (typeof freelancers)[0];
+  onProfileClick,
+}: {
+  freelancer: FreelancerProfile;
   onMessageClick: () => void;
   onProfileClick: () => void;
 }) {
@@ -634,9 +564,17 @@ function FreelancerCard({
         {/* Avatar with online indicator */}
         <div className="relative flex-shrink-0">
           <div className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full border-2 border-[#F0F0F0] bg-gradient-to-br from-[#F3F4F6] to-[#E5E7EB] shadow-sm transition-all duration-200 group-hover:border-[#3B82F6]">
-            <span className="text-2xl font-semibold text-[#6B7280]">
-              {getInitials(freelancer.name)}
-            </span>
+            {freelancer.avatar ? (
+              <img
+                src={freelancer.avatar}
+                alt={freelancer.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-2xl font-semibold text-[#6B7280]">
+                {getInitials(freelancer.name)}
+              </span>
+            )}
           </div>
           {/* Status indicator dot */}
           {freelancer.availability === 'available' && (
