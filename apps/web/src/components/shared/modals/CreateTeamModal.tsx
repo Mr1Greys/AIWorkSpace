@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { X, Upload } from 'lucide-react';
 import { Button } from '@aiworkspace/ui';
 
@@ -14,13 +14,40 @@ export function CreateTeamModal({ isOpen, onClose }: CreateTeamModalProps) {
   const [description, setDescription] = useState('');
   const [direction, setDirection] = useState('');
   const [tags, setTags] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
+
+  const getInitials = (name: string) =>
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || '')
+      .join('') || 'КО';
+
+  const handleAvatarSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAvatarButtonClick = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // TODO: Implement team creation logic
-    console.log({ teamName, description, direction, tags });
+    console.log({ teamName, description, direction, tags, avatarFile });
     onClose();
   };
 
@@ -115,16 +142,51 @@ export function CreateTeamModal({ isOpen, onClose }: CreateTeamModalProps) {
               Аватар команды
             </label>
             <div className="flex items-center gap-4">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100 text-3xl">
-                🚀
+              {avatarPreview ? (
+                <img
+                  src={avatarPreview}
+                  alt={teamName || 'Аватар команды'}
+                  className="h-20 w-20 rounded-full object-cover shadow-sm"
+                />
+              ) : (
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#F3F4F6] to-[#E5E7EB] shadow-sm">
+                  <span className="text-xl font-semibold text-[#4B5563]">
+                    {getInitials(teamName)}
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleAvatarButtonClick}
+                  className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  <Upload className="h-4 w-4" />
+                  Загрузить
+                </button>
+                {avatarPreview && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAvatarPreview(null);
+                      setAvatarFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                    className="text-left text-xs text-gray-500 underline"
+                  >
+                    Удалить изображение
+                  </button>
+                )}
               </div>
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-              >
-                <Upload className="h-4 w-4" />
-                Загрузить
-              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarSelect}
+              />
             </div>
           </div>
 
