@@ -4,30 +4,15 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { CreateTeamModal, CreateTeamFormValues } from '@/components/shared/modals/CreateTeamModal';
+import { CreateTeamModal } from '@/components/shared/modals/CreateTeamModal';
 import { Search, Users, Star, Briefcase, MessageSquare, Plus, CheckCircle2, Clock } from 'lucide-react';
 import { Badge } from '@aiworkspace/ui';
-import { TeamAvatar } from '@/components/teams/TeamAvatar';
 
-type CatalogTeam = {
-  id: number;
-  name: string;
-  avatar?: string | null;
-  members: number;
-  maxMembers: number;
-  specialization: string;
-  skills: string[];
-  rating: number;
-  projects: number;
-  category: string;
-  status: 'open' | 'closed';
-};
-
-const initialTeams: CatalogTeam[] = [
+const teams = [
   {
     id: 1,
     name: 'CodeNova',
-    avatar: null,
+    logo: '🚀',
     members: 5,
     maxMembers: 8,
     specialization: 'Веб-разработка и дизайн',
@@ -40,7 +25,7 @@ const initialTeams: CatalogTeam[] = [
   {
     id: 2,
     name: 'AI Wizards',
-    avatar: null,
+    logo: '🧙',
     members: 4,
     maxMembers: 6,
     specialization: 'Машинное обучение и AI',
@@ -53,7 +38,7 @@ const initialTeams: CatalogTeam[] = [
   {
     id: 3,
     name: 'Web3 Builders',
-    avatar: null,
+    logo: '⛓️',
     members: 6,
     maxMembers: 6,
     specialization: 'Блокчейн и смарт-контракты',
@@ -73,35 +58,11 @@ export default function TeamsPage() {
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [selectedSize, setSelectedSize] = useState('Все');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [teamList, setTeamList] = useState(initialTeams);
-
-  const handleCreateTeam = (values: CreateTeamFormValues) => {
-    const nextTeam: CatalogTeam = {
-      id: Date.now(),
-      name: values.name,
-      avatar: values.avatar || null,
-      members: 1,
-      maxMembers: 10,
-      specialization: values.description,
-      skills: values.tags.slice(0, 4),
-      rating: 5,
-      projects: 0,
-      category: values.direction || 'web',
-      status: 'open',
-    };
-
-    setTeamList((prev) => [nextTeam, ...prev]);
-    setIsCreateModalOpen(false);
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <CreateTeamModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onCreate={handleCreateTeam}
-      />
+      <CreateTeamModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
 
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
@@ -181,7 +142,7 @@ export default function TeamsPage() {
 
         {/* Teams Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {teamList.map((team) => (
+          {teams.map((team) => (
             <div
               key={team.id}
               className="rounded-2xl border border-gray-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg"
@@ -189,7 +150,7 @@ export default function TeamsPage() {
               {/* Header */}
               <div className="mb-4 flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <TeamAvatar name={team.name} src={team.avatar} size="md" />
+                  <div className="text-4xl">{team.logo}</div>
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900">{team.name}</h3>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
