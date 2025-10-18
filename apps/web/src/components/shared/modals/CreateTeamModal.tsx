@@ -3,13 +3,24 @@
 import { useRef, useState } from 'react';
 import { X, Upload } from 'lucide-react';
 import { Button } from '@aiworkspace/ui';
+import { TeamAvatar } from '@/components/teams/TeamAvatar';
+
+export interface CreateTeamFormValues {
+  name: string;
+  description: string;
+  direction: string;
+  tags: string[];
+  avatar?: string | null;
+  avatarFile?: File | null;
+}
 
 interface CreateTeamModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreate?: (team: CreateTeamFormValues) => void;
 }
 
-export function CreateTeamModal({ isOpen, onClose }: CreateTeamModalProps) {
+export function CreateTeamModal({ isOpen, onClose, onCreate }: CreateTeamModalProps) {
   const [teamName, setTeamName] = useState('');
   const [description, setDescription] = useState('');
   const [direction, setDirection] = useState('');
@@ -19,14 +30,6 @@ export function CreateTeamModal({ isOpen, onClose }: CreateTeamModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
-
-  const getInitials = (name: string) =>
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() || '')
-      .join('') || 'КО';
 
   const handleAvatarSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -46,8 +49,25 @@ export function CreateTeamModal({ isOpen, onClose }: CreateTeamModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement team creation logic
-    console.log({ teamName, description, direction, tags, avatarFile });
+    const payload: CreateTeamFormValues = {
+      name: teamName.trim(),
+      description: description.trim(),
+      direction,
+      tags: tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      avatar: avatarPreview,
+      avatarFile,
+    };
+
+    onCreate?.(payload);
+    setTeamName('');
+    setDescription('');
+    setDirection('');
+    setTags('');
+    setAvatarPreview(null);
+    setAvatarFile(null);
     onClose();
   };
 
@@ -142,19 +162,7 @@ export function CreateTeamModal({ isOpen, onClose }: CreateTeamModalProps) {
               Аватар команды
             </label>
             <div className="flex items-center gap-4">
-              {avatarPreview ? (
-                <img
-                  src={avatarPreview}
-                  alt={teamName || 'Аватар команды'}
-                  className="h-20 w-20 rounded-full object-cover shadow-sm"
-                />
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#F3F4F6] to-[#E5E7EB] shadow-sm">
-                  <span className="text-xl font-semibold text-[#4B5563]">
-                    {getInitials(teamName)}
-                  </span>
-                </div>
-              )}
+              <TeamAvatar name={teamName || 'Команда'} src={avatarPreview} size="lg" />
               <div className="flex flex-col gap-2">
                 <button
                   type="button"
