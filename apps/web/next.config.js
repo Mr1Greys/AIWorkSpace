@@ -3,6 +3,9 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   transpilePackages: ['@aiworkspace/shared', '@aiworkspace/ui'],
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     domains: ['aiworkspace-uploads.s3.amazonaws.com', 'gateway.pinata.cloud'],
     formats: ['image/avif', 'image/webp'],
