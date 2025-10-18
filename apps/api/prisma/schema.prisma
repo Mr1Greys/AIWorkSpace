@@ -1,0 +1,356 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USERS
+// ============================================
+
+enum UserRole {
+  FREELANCER
+  CLIENT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+model User {
+  id            String      @id @default(uuid())
+  role          UserRole
+  status        UserStatus  @default(ACTIVE)
+  
+  // Auth
+  email         String      @unique
+  emailVerified Boolean     @default(false)
+  passwordHash  String?
+  
+  // OAuth
+  githubId      String?     @unique
+  linkedinId    String?     @unique
+  telegramId    String?     @unique
+  
+  // Web3
+  walletAddress String?     @unique
+  
+  // Profile
+  name          String
+  username      String?     @unique
+  bio           String?
+  avatarUrl     String?
+  location      String?
+  timezone      String?
+  
+  // Freelancer-specific
+  tags          String[]
+  rateHour      Int?
+  availability  Int?
+  successRate   Float       @default(0)
+  reliability   Int         @default(100)
+  responseSpeed Float       @default(0.5)
+  
+  // Stats
+  rating        Float       @default(0)
+  totalEarned   Int         @default(0)
+  projectsCount Int         @default(0)
+  strikes       Int         @default(0)
+  
+  // Subscription
+  isPro         Boolean     @default(false)
+  proUntil      DateTime?
+  
+  // Notifications
+  emailNotifications Boolean  @default(true)
+  pushNotifications  Boolean  @default(true)
+  pushToken          String?
+  
+  // Relations
+  briefsCreated Brief[]      @relation("ClientBriefs")
+  projectsAsFreelancer Project[] @relation("FreelancerProjects")
+  projectsAsClient Project[]     @relation("ClientProjects")
+  offers        Offer[]
+  cases         Case[]
+  reviewsGiven  Review[]     @relation("ClientReviews")
+  reviewsReceived Review[]   @relation("FreelancerReviews")
+  messagesSent  Message[]    @relation("SenderMessages")
+  messagesReceived Message[] @relation("RecipientMessages")
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  @@index([tags], type: Gin)
+  @@index([role, status])
+  @@index([username])
+}
+
+// ============================================
+// BRIEFS
+// ============================================
+
+enum BriefStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+model Brief {
+  id            String      @id @default(uuid())
+  clientId      String
+  client        User        @relation("ClientBriefs", fields: [clientId], references: [id])
+  
+  // Content
+  title         String
+  goal          String?
+  description   String
+  tags          String[]
+  
+  // Budget
+  budgetMin     Int
+  budgetMax     Int
+  
+  // Timeline
+  deadlineDays  Int
+  
+  // Status
+  status        BriefStatus @default(OPEN)
+  
+  // Relations
+  projects      Project[]
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  @@index([tags], type: Gin)
+  @@index([status])
+  @@index([clientId])
+}
+
+// ============================================
+// PROJECTS
+// ============================================
+
+enum ProjectStatus {
+  OPEN
+  MATCHED
+  IN_PROGRESS
+  IN_ESCROW
+  SUBMITTED
+  COMPLETED
+  DISPUTED
+  CANCELLED
+}
+
+model Project {
+  id            String        @id @default(uuid())
+  briefId       String
+  brief         Brief         @relation(fields: [briefId], references: [id])
+  
+  freelancerId  String?
+  freelancer    User?         @relation("FreelancerProjects", fields: [freelancerId], references: [id])
+  
+  clientId      String
+  client        User          @relation("ClientProjects", fields: [clientId], references: [id])
+  
+  // Status
+  status        ProjectStatus @default(OPEN)
+  
+  // Relations
+  offers        Offer[]
+  escrow        Escrow?
+  messages      Message[]
+  review        Review?
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  @@index([status])
+  @@index([freelancerId])
+  @@index([clientId])
+  @@index([briefId])
+}
+
+// ============================================
+// OFFERS
+// ============================================
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Offer {
+  id            String      @id @default(uuid())
+  projectId     String
+  project       Project     @relation(fields: [projectId], references: [id])
+  
+  freelancerId  String
+  freelancer    User        @relation(fields: [freelancerId], references: [id])
+  
+  // Content
+  text          String
+  rate          Int
+  durationDays  Int
+  
+  status        OfferStatus @default(PENDING)
+  
+  createdAt     DateTime    @default(now())
+  
+  @@index([projectId])
+  @@index([freelancerId])
+  @@index([status])
+}
+
+// ============================================
+// ESCROWS
+// ============================================
+
+enum EscrowStatus {
+  FUNDED
+  SUBMITTED
+  RELEASED
+  DISPUTED
+  RESOLVED
+}
+
+model Escrow {
+  id            String       @id @default(uuid())
+  
+  // Blockchain
+  chainId       Int
+  dealId        String       @unique
+  txHash        String
+  token         String
+  amount        BigInt
+  
+  // Parties
+  clientId      String
+  freelancerId  String
+  projectId     String       @unique
+  project       Project      @relation(fields: [projectId], references: [id])
+  
+  // Status
+  status        EscrowStatus
+  submittedAt   DateTime?
+  releasedAt    DateTime?
+  
+  // Dispute
+  disputeReason String?
+  resolution    String?
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@index([status])
+  @@index([projectId])
+}
+
+// ============================================
+// CASES (Portfolio)
+// ============================================
+
+enum CaseVisibility {
+  PUBLIC
+  PRIVATE
+  NDA
+}
+
+enum CaseStatus {
+  DRAFT
+  PUBLISHED
+  MODERATION
+  REJECTED
+}
+
+model Case {
+  id            String          @id @default(uuid())
+  freelancerId  String
+  freelancer    User            @relation(fields: [freelancerId], references: [id])
+  
+  projectId     String?
+  
+  // Content
+  title         String
+  description   String
+  tags          String[]
+  
+  // Details
+  budget        Int?
+  durationDays  Int?
+  
+  // Media
+  linksJson     Json?
+  mediaJson     Json?
+  
+  // Visibility
+  visibility    CaseVisibility  @default(PUBLIC)
+  status        CaseStatus      @default(PUBLISHED)
+  
+  // Moderation
+  moderationNote String?
+  
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  @@index([freelancerId])
+  @@index([status])
+  @@index([visibility])
+}
+
+// ============================================
+// REVIEWS
+// ============================================
+
+model Review {
+  id            String      @id @default(uuid())
+  projectId     String      @unique
+  project       Project     @relation(fields: [projectId], references: [id])
+  
+  clientId      String
+  client        User        @relation("ClientReviews", fields: [clientId], references: [id])
+  
+  freelancerId  String
+  freelancer    User        @relation("FreelancerReviews", fields: [freelancerId], references: [id])
+  
+  rating        Int
+  comment       String?
+  
+  createdAt     DateTime    @default(now())
+  
+  @@index([freelancerId])
+  @@index([projectId])
+}
+
+// ============================================
+// MESSAGES
+// ============================================
+
+model Message {
+  id            String      @id @default(uuid())
+  projectId     String
+  project       Project     @relation(fields: [projectId], references: [id])
+  
+  senderId      String
+  sender        User        @relation("SenderMessages", fields: [senderId], references: [id])
+  
+  recipientId   String
+  recipient     User        @relation("RecipientMessages", fields: [recipientId], references: [id])
+  
+  text          String
+  read          Boolean     @default(false)
+  
+  createdAt     DateTime    @default(now())
+  
+  @@index([projectId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([createdAt])
+}
